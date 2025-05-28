@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户画像 - Rook外卖</title>
+    <link rel="stylesheet" href="../styles/common.css">
+    <link rel="stylesheet" href="../styles/userProfile.css">
+    <link rel="stylesheet" href="../../backend/plugins/element-ui/index.css"/>
+    <link rel="stylesheet" href="../styles/vant.min.css"/>
+</head>
+<body>
+    <div id="userProfile" class="app">
+        <div class="divHead">
+            <div class="divTitle">
+                <i class="el-icon-arrow-left" @click="goBack"></i>用户画像
+            </div>
+        </div>
+        <div class="profile-container">
+            <div class="profile-actions">
+                <button id="generateProfile" class="btn-primary">生成用户画像</button>
+            </div>
+
+            <div class="profile-content" style="display: none;">
+                <div class="profile-section">
+                    <h3>常点菜品</h3>
+                    <div id="favoriteDishes" class="profile-item"></div>
+                </div>
+
+                <div class="profile-section">
+                    <h3>口味偏好</h3>
+                    <div id="tastePreference" class="profile-item"></div>
+                </div>
+
+                <div class="profile-section">
+                    <h3>消费习惯</h3>
+                    <div id="consumptionHabits" class="profile-item"></div>
+                </div>
+
+                <div class="profile-section">
+                    <h3>AI分析</h3>
+                    <div id="aiAnalysis" class="profile-item"></div>
+                </div>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>正在生成用户画像...</p>
+            </div>
+
+            <div id="error" class="error" style="display: none;">
+                <p>生成用户画像失败，请稍后重试</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../backend/plugins/vue/vue.js"></script>
+    <script src="../../backend/plugins/element-ui/index.js"></script>
+    <script src="../js/vant.min.js"></script>
+    <script src="../js/jquery.min.js"></script>
+    <script src="../../backend/plugins/axios/axios.min.js"></script>
+    <script src="../js/request.js"></script>
+    <script src="../js/userProfile.js"></script>
+</body>
+</html> 

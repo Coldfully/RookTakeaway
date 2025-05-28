@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户画像管理</title>
+    <link rel="stylesheet" href="../../plugins/element-ui/index.css"/>
+    <link rel="stylesheet" href="../../styles/common.css"/>
+    <link rel="stylesheet" href="../../styles/icon/iconfont.css"/>
+    <style>
+        .filter-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .filter-item {
+            margin-right: 10px;
+        }
+        .dalfBut {
+            margin-right: 10px;
+        }
+        .button-container {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="app-container">
+        <div class="filter-container">
+            <el-input
+                    placeholder="用户邮箱"
+                    v-model="pagination.email"
+                    style="width: 200px;"
+                    class="filter-item"
+                    @keyup.enter.native="handleFilter"/>
+        </div>
+        <div class="button-container">
+            <el-button class="dalfBut" @click="handleFilter">查询</el-button>
+            <el-button type="primary" class="dalfBut" @click="handleBatchGenerate">批量生成用户画像</el-button>
+        </div>
+
+        <el-table
+                :data="dataList"
+                border
+                class="table"
+                v-loading="loading">
+            <el-table-column
+                    label="用户邮箱"
+                    prop="email">
+            </el-table-column>
+            <el-table-column
+                    label="常点菜品"
+                    prop="favoriteDishes">
+            </el-table-column>
+            <el-table-column
+                    label="口味偏好"
+                    prop="tastePreference">
+            </el-table-column>
+            <el-table-column
+                    label="消费习惯"
+                    prop="consumptionHabits">
+            </el-table-column>
+            <el-table-column
+                    label="AI分析"
+                    prop="aiAnalysis">
+            </el-table-column>
+            <el-table-column
+                    label="操作"
+                    align="center"
+                    width="230">
+                <template slot-scope="scope">
+                    <el-button type="primary" size="mini" @click="handleGenerate(scope.row)">重新生成</el-button>
+                </template>
+            </el-table-column>
+        </el-table>
+
+        <div class="pagination-container">
+            <el-pagination
+                    background
+                    @size-change="handleSizeChange"
+                    @current-change="handleCurrentChange"
+                    :current-page="pagination.currentPage"
+                    :page-sizes="[10,20,30,50]"
+                    :page-size="pagination.pageSize"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    :total="pagination.total">
+            </el-pagination>
+        </div>
+    </div>
+</div>
+
+<script src="../../plugins/vue/vue.js"></script>
+<script src="../../plugins/element-ui/index.js"></script>
+<script src="../../plugins/axios/axios.min.js"></script>
+<script src="../../js/request.js"></script>
+<script src="../../api/userProfile.js"></script>
+<script>
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                dataList: [],
+                pagination: {
+                    currentPage: 1,
+                    pageSize: 10,
+                    total: 0,
+                    email: ''
+                },
+                loading: false
+            }
+        },
+        created() {
+            this.getList()
+        },
+        methods: {
+            getList() {
+                this.loading = true
+                userProfileListApi(this.pagination).then(res => {
+                    this.loading = false
+                    if (res.code === 1) {
+                        this.dataList = res.data.records
+                        this.pagination.total = res.data.total
+                    } else {
+                        this.$message.error(res.msg)
+                    }
+                })
+            },
+            handleFilter() {
+                this.pagination.currentPage = 1
+                this.getList()
+            },
+            handleSizeChange(val) {
+                this.pagination.pageSize = val
+                this.getList()
+            },
+            handleCurrentChange(val) {
+                this.pagination.currentPage = val
+                this.getList()
+            },
+            handleGenerate(row) {
+                this.$confirm('确认重新生成该用户的画像吗?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    generateUserProfileApi(row.userId).then(res => {
+                        if (res.code === 1) {
+                            this.$message.success('生成成功')
+                            this.getList()
+                        } else {
+                            this.$message.error(res.msg)
+                        }
+                    })
+                })
+            },
+            handleBatchGenerate() {
+                this.$confirm('确认为所有用户生成画像吗?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    this.loading = true;
+                    generateBatchUserProfileApi().then(res => {
+                        this.loading = false;
+                        if (res.code === 1) {
+                            this.$message.success(res.data)
+                            this.getList()
+                        } else {
+                            this.$message.error(res.msg)
+                        }
+                    }).catch(() => {
+                        this.loading = false;
+                        this.$message.error('批量生成失败')
+                    })
+                })
+            }
+        }
+    })
+</script>
+</body>
+</html> 

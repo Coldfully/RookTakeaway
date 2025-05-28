@@ -1,0 +1,308 @@
+/* 电脑端样式 */
+:root {
+    --primary-color: #ffc200;
+    --text-color: #333333;
+    --border-color: #efefef;
+    --background-color: #ffffff;
+}
+
+/* 全局样式 */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: PingFangSC, PingFangSC-Regular, sans-serif;
+    background-color: #f5f5f5;
+}
+
+/* 主容器 */
+.desktop-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 头部样式 */
+.desktop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background-color: var(--background-color);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.desktop-header .logo {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.desktop-header .logo img {
+    width: 50px;
+    height: 50px;
+}
+
+.desktop-header .logo .divDesc {
+    display: flex;
+    flex-direction: column;
+}
+
+.desktop-header .logo .divName {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.desktop-header .logo .divSend {
+    display: flex;
+    gap: 20px;
+    font-size: 14px;
+    color: #666;
+}
+
+.desktop-header .logo .divSend span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.desktop-header .logo .divSend img {
+    width: 16px;
+    height: 16px;
+}
+
+/* 主要内容区域 */
+.desktop-main {
+    display: flex;
+    gap: 20px;
+}
+
+/* 左侧分类菜单 */
+.desktop-categories {
+    width: 200px;
+    background-color: var(--background-color);
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.desktop-categories ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.desktop-categories li {
+    padding: 12px 15px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.desktop-categories li:hover {
+    background-color: #f5f5f5;
+}
+
+.desktop-categories li.active {
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+/* 右侧菜品列表 */
+.desktop-dishes {
+    flex: 1;
+    background-color: var(--background-color);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.desktop-dish-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.desktop-dish-item {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    transition: all 0.3s ease;
+}
+
+.desktop-dish-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.desktop-dish-item img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.desktop-dish-item .divName {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 10px 0;
+}
+
+.desktop-dish-item .divDesc {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.desktop-dish-item .divBottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.desktop-dish-item .price {
+    color: #e94e3c;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.desktop-dish-item .divNum {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.desktop-dish-item .divNum img {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+}
+
+/* 购物车样式 */
+.desktop-cart {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    background-color: var(--background-color);
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    z-index: 1000;
+}
+
+.desktop-cart .cart-icon {
+    position: relative;
+}
+
+.desktop-cart .cart-icon img {
+    width: 40px;
+    height: 40px;
+}
+
+.desktop-cart .cart-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: #e94e3c;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+.desktop-cart .cart-total {
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.desktop-cart .checkout-btn {
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    border: none;
+    padding: 8px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.desktop-cart .checkout-btn:hover {
+    background-color: #e6b000;
+}
+
+/* 弹窗样式 */
+.desktop-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--background-color);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 2000;
+    max-width: 500px;
+    width: 90%;
+}
+
+.desktop-dialog .dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.desktop-dialog .dialog-title {
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.desktop-dialog .dialog-close {
+    cursor: pointer;
+    padding: 5px;
+}
+
+.desktop-dialog .dialog-content {
+    margin-bottom: 20px;
+}
+
+.desktop-dialog .dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* 响应式调整 */
+@media screen and (max-width: 1200px) {
+    .desktop-container {
+        padding: 10px;
+    }
+    
+    .desktop-dish-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .desktop-main {
+        flex-direction: column;
+    }
+    
+    .desktop-categories {
+        width: 100%;
+    }
+    
+    .desktop-dish-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+} 
