@@ -22,6 +22,69 @@
         .button-container {
             margin-bottom: 20px;
         }
+        .profile-card {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+        }
+        .profile-section {
+            margin-bottom: 15px;
+        }
+        .profile-section:last-child {
+            margin-bottom: 0;
+        }
+        .profile-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #303133;
+            margin-bottom: 10px;
+            padding-left: 10px;
+            border-left: 4px solid #409EFF;
+        }
+        .profile-content {
+            padding-left: 15px;
+            color: #606266;
+            line-height: 1.6;
+        }
+        .profile-item {
+            margin-bottom: 8px;
+        }
+        .profile-item:last-child {
+            margin-bottom: 0;
+        }
+        .profile-label {
+            font-weight: bold;
+            color: #303133;
+        }
+        .profile-value {
+            color: #606266;
+            margin-left: 5px;
+        }
+        .profile-value.amount {
+            color: #67C23A;
+            font-weight: 500;
+        }
+        .profile-value.level {
+            color: #E6A23C;
+            font-weight: 500;
+        }
+        .profile-value.feature {
+            color: #409EFF;
+            font-weight: 500;
+        }
+        .recommendation-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .recommendation-item {
+            display: inline-block;
+            margin: 5px;
+            padding: 5px 10px;
+            background-color: #ecf5ff;
+            border-radius: 4px;
+            color: #409EFF;
+        }
     </style>
 </head>
 <body>
@@ -59,18 +122,30 @@
             </el-table-column>
             <el-table-column
                     label="消费习惯"
-                    prop="consumptionHabits">
+                    width="300">
+                <template slot-scope="scope">
+                    <div class="profile-card">
+                        <div v-if="scope.row.consumptionHabits" v-html="formatConsumptionHabits(scope.row.consumptionHabits)"></div>
+                        <div v-else>暂无消费习惯数据</div>
+                    </div>
+                </template>
             </el-table-column>
             <el-table-column
                     label="AI分析"
-                    prop="aiAnalysis">
+                    width="400">
+                <template slot-scope="scope">
+                    <div class="profile-card">
+                        <div v-if="scope.row.aiAnalysis" v-html="formatAnalysis(scope.row.aiAnalysis)"></div>
+                        <div v-else>暂无AI分析数据</div>
+                    </div>
+                </template>
             </el-table-column>
             <el-table-column
                     label="操作"
                     align="center"
                     width="230">
                 <template slot-scope="scope">
-                    <el-button type="primary" size="mini" @click="handleGenerate(scope.row)">重新生成</el-button>
+                    <el-button type="danger" size="mini" @click="handleDelete(scope.row)">删除</el-button>
                 </template>
             </el-table-column>
         </el-table>
@@ -114,6 +189,37 @@
             this.getList()
         },
         methods: {
+            formatConsumptionHabits(habits) {
+                if (!habits) return '';
+                
+                // 将消费习惯文本转换为HTML格式
+                let html = habits
+                    .replace(/消费习惯分析：/g, '<div class="profile-title">消费习惯分析</div>')
+                    .replace(/- 平均消费：(.*?)元/g, '<div class="profile-item"><span class="profile-label">平均消费：</span><span class="profile-value amount">¥$1</span></div>')
+                    .replace(/- 消费水平：(.*?)/g, '<div class="profile-item"><span class="profile-label">消费水平：</span><span class="profile-value level">$1</span></div>')
+                    .replace(/- 消费特征：(.*?)/g, '<div class="profile-item"><span class="profile-label">消费特征：</span><span class="profile-value feature">$1</span></div>')
+                    .replace(/\n/g, '<br>');
+                
+                return html;
+            },
+            formatAnalysis(analysis) {
+                if (!analysis) return '';
+                
+                // 将分析文本转换为HTML格式
+                let html = analysis
+                    .replace(/####/g, '<div class="profile-section">')
+                    .replace(/####/g, '</div>')
+                    .replace(/\*\*(.*?)\*\*/g, '<span class="profile-label">$1</span>')
+                    .replace(/\n/g, '<br>')
+                    .replace(/\* (.*?)(?=\n|$)/g, '<div class="profile-item">• $1</div>')
+                    .replace(/\*\*(.*?)\*\*：/g, '<div class="profile-title">$1</div>')
+                    .replace(/- (.*?)(?=\n|$)/g, '<div class="profile-item">• $1</div>');
+                
+                // 处理推荐列表
+                html = html.replace(/\*\*(.*?)\*\*（(.*?)）/g, '<span class="recommendation-item">$1（$2）</span>');
+                
+                return html;
+            },
             getList() {
                 this.loading = true
                 userProfileListApi(this.pagination).then(res => {
@@ -138,21 +244,33 @@
                 this.pagination.currentPage = val
                 this.getList()
             },
-            handleGenerate(row) {
-                this.$confirm('确认重新生成该用户的画像吗?', '提示', {
+            handleDelete(row) {
+                if (!row.id) {
+                    this.$message.error('画像ID不存在，无法删除');
+                    return;
+                }
+                
+                this.$confirm('确认删除该用户的画像吗?', '提示', {
                     confirmButtonText: '确定',
                     cancelButtonText: '取消',
                     type: 'warning'
                 }).then(() => {
-                    generateUserProfileApi(row.userId).then(res => {
+                    this.loading = true;
+                    deleteUserProfileApi(row.id).then(res => {
+                        this.loading = false;
                         if (res.code === 1) {
-                            this.$message.success('生成成功')
-                            this.getList()
+                            this.$message.success('删除成功');
+                            this.getList();
                         } else {
-                            this.$message.error(res.msg)
+                            this.$message.error(res.msg || '删除失败');
                         }
-                    })
-                })
+                    }).catch(err => {
+                        this.loading = false;
+                        this.$message.error('删除失败：' + (err.message || '未知错误'));
+                    });
+                }).catch(() => {
+                    this.$message.info('已取消删除');
+                });
             },
             handleBatchGenerate() {
                 this.$confirm('确认为所有用户生成画像吗?', '提示', {

@@ -110,39 +110,27 @@ public class UserProfileController {
      * 批量生成用户画像
      */
     @PostMapping("/generate/batch")
-    public R<String> generateBatchProfiles() {
+    public R<String> generateBatchProfile() {
         try {
-            // 获取所有用户
-            List<User> users = userService.list();
-            log.info("开始批量生成用户画像，总用户数：{}", users.size());
-            
-            int successCount = 0;
-            int failCount = 0;
-            StringBuilder errorMessages = new StringBuilder();
-            
-            for (User user : users) {
-                try {
-                    log.info("开始处理用户：{}，邮箱：{}", user.getId(), user.getEmail());
-                    userProfileService.generateUserProfile(user.getId());
-                    successCount++;
-                    log.info("用户{}的画像生成成功", user.getEmail());
-                } catch (Exception e) {
-                    failCount++;
-                    String errorMsg = String.format("用户%s（%s）生成失败：%s", user.getEmail(), user.getId(), e.getMessage());
-                    log.error(errorMsg);
-                    errorMessages.append(errorMsg).append("\n");
-                }
-            }
-            
-            String resultMessage = String.format("批量生成完成，成功：%d，失败：%d", successCount, failCount);
-            if (failCount > 0) {
-                resultMessage += "\n失败详情：\n" + errorMessages.toString();
-            }
-            
-            return R.success(resultMessage);
+            userProfileService.generateBatchUserProfile();
+            return R.success("批量生成用户画像成功");
         } catch (Exception e) {
             log.error("批量生成用户画像失败", e);
             return R.error("批量生成用户画像失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除用户画像
+     */
+    @DeleteMapping("/{id}")
+    public R<String> deleteProfile(@PathVariable Long id) {
+        try {
+            userProfileService.removeById(id);
+            return R.success("用户画像删除成功");
+        } catch (Exception e) {
+            log.error("删除用户画像失败", e);
+            return R.error("删除用户画像失败：" + e.getMessage());
         }
     }
 } 

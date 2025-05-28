@@ -48,5 +48,10 @@ rikky:
 
 deepseek:
   api:
-    key: ${DEEPSEEK_API_KEY:sk-W0rpStc95T7JVYVwDYc29IyirjtpPPby6SozFMQr17m8KWeo}
-    url: ${DEEPSEEK_API_URL:https://api.suanli.cn/v1}
+    key: sk-30563a41e49745dd9c90a7a64a1dae62
+    url: https://api.deepseek.com/v1/chat/completions
+
+logging:
+  level:
+    com.fubukiss.rikky.util.DeepSeekClient: DEBUG
+    org.springframework.web.client.RestTemplate: DEBUG

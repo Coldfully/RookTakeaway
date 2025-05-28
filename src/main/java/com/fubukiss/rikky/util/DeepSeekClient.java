@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpClientErrorException;
@@ -34,103 +36,123 @@ public class DeepSeekClient {
     }
 
     public String analyzeUserProfile(String userHistoryJson) {
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + apiKey);
-
-            // 创建请求体
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", "deepseek-chat");
-            
-            // 创建消息列表
-            List<Map<String, String>> messages = new ArrayList<>();
-            
-            // 添加系统消息
-            Map<String, String> systemMessage = new HashMap<>();
-            systemMessage.put("role", "system");
-            systemMessage.put("content", "你是一个专业的用户行为分析专家，请根据用户的点餐历史数据，分析用户的饮食偏好和习惯，给出个性化的推荐建议。分析结果应该包含以下几个方面：1. 口味偏好分析 2. 消费习惯分析 3. 个性化推荐建议");
-            messages.add(systemMessage);
-            
-            // 添加用户消息
-            Map<String, String> userMessage = new HashMap<>();
-            userMessage.put("role", "user");
-            userMessage.put("content", "请分析以下用户数据并给出建议：\n" + userHistoryJson);
-            messages.add(userMessage);
-            
-            requestBody.put("messages", messages);
-
-            log.info("发送DeepSeek API请求，请求体：{}", requestBody);
-
-            // 创建HTTP请求
-            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-            
+        int maxRetries = 3;
+        int currentRetry = 0;
+        
+        while (currentRetry < maxRetries) {
             try {
-                // 发送请求并获取响应
-                Map<String, Object> response = restTemplate.postForObject(apiUrl, request, Map.class);
-                log.info("DeepSeek API响应：{}", response);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.set("Authorization", "Bearer " + apiKey.trim());
+                headers.set("Accept", "application/json");
 
-                // 处理响应
-                if (response == null) {
-                    log.error("DeepSeek API返回空响应");
-                    throw new RuntimeException("AI分析服务返回空响应");
-                }
+                // 创建请求体
+                Map<String, Object> requestBody = new HashMap<>();
+                requestBody.put("model", "deepseek-chat");
+                requestBody.put("temperature", 0.7);
+                requestBody.put("max_tokens", 2000);
+                
+                // 创建消息列表
+                List<Map<String, String>> messages = new ArrayList<>();
+                
+                // 添加系统消息
+                Map<String, String> systemMessage = new HashMap<>();
+                systemMessage.put("role", "system");
+                systemMessage.put("content", "你是一个专业的用户行为分析专家，请根据用户的点餐历史数据，分析用户的饮食偏好和习惯，给出个性化的推荐建议。分析结果应该包含以下几个方面：\n" +
+                    "1. 口味偏好分析：分析用户的口味偏好，包括辣度、忌口等\n" +
+                    "2. 消费习惯分析：分析用户的消费水平、消费稳定性等\n" +
+                    "3. 个性化推荐建议：根据用户的历史订单，推荐可能感兴趣的新菜品\n" +
+                    "请确保分析结果详细且专业，每个部分都要有具体的分析数据支持。");
+                messages.add(systemMessage);
+                
+                // 添加用户消息
+                Map<String, String> userMessage = new HashMap<>();
+                userMessage.put("role", "user");
+                userMessage.put("content", "请分析以下用户数据并给出建议：\n" + userHistoryJson);
+                messages.add(userMessage);
+                
+                requestBody.put("messages", messages);
 
-                if (response.containsKey("error")) {
-                    Map<String, Object> error = (Map<String, Object>) response.get("error");
-                    String errorMessage = error.get("message").toString();
-                    String errorType = error.get("type").toString();
-                    String errorCode = error.get("code").toString();
+                log.info("发送DeepSeek API请求，第{}次尝试，URL: {}", currentRetry + 1, apiUrl);
+                log.debug("请求头: {}", headers);
+                log.debug("请求体: {}", requestBody);
+
+                // 创建HTTP请求
+                HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+                
+                // 发送请求
+                ResponseEntity<Map> response = restTemplate.postForEntity(apiUrl, request, Map.class);
+                
+                if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                    Map<String, Object> responseBody = response.getBody();
+                    log.debug("API响应: {}", responseBody);
                     
-                    log.error("DeepSeek API返回错误：类型={}，代码={}，消息={}", errorType, errorCode, errorMessage);
-                    
-                    if ("invalid_request_error".equals(errorCode) && "Insufficient Balance".equals(errorMessage)) {
-                        throw new RuntimeException("AI分析服务余额不足，请充值后重试");
+                    // 检查是否有错误信息
+                    if (responseBody.containsKey("error")) {
+                        Map<String, Object> error = (Map<String, Object>) responseBody.get("error");
+                        String errorMessage = error.get("message").toString();
+                        log.error("DeepSeek API返回错误：{}", errorMessage);
+                        currentRetry++;
+                        continue;
                     }
                     
-                    throw new RuntimeException("AI分析服务返回错误：" + errorMessage);
+                    if (responseBody.containsKey("choices") && !((List)responseBody.get("choices")).isEmpty()) {
+                        Map<String, Object> choice = (Map<String, Object>)((List)responseBody.get("choices")).get(0);
+                        if (choice.containsKey("message")) {
+                            Map<String, String> message = (Map<String, String>)choice.get("message");
+                            if (message.containsKey("content")) {
+                                String content = message.get("content");
+                                if (content != null && !content.trim().isEmpty()) {
+                                    log.info("DeepSeek API调用成功，返回内容长度：{}", content.length());
+                                    return content;
+                                }
+                            }
+                        }
+                    }
+                } else if (response.getStatusCode() == HttpStatus.NOT_FOUND) {
+                    log.error("DeepSeek API地址不存在，请检查配置：{}", apiUrl);
+                    return null;
                 }
-
-                if (!response.containsKey("choices")) {
-                    log.error("DeepSeek API返回数据格式异常，缺少choices字段");
-                    throw new RuntimeException("AI分析服务返回数据格式异常");
+                
+                log.warn("DeepSeek API返回数据格式不正确或内容为空，准备重试");
+                currentRetry++;
+                if (currentRetry < maxRetries) {
+                    Thread.sleep(1000 * currentRetry); // 递增延迟重试
                 }
-
-                List<?> choices = (List<?>) response.get("choices");
-                if (choices.isEmpty()) {
-                    log.error("DeepSeek API返回空choices列表");
-                    throw new RuntimeException("AI分析服务返回空结果");
-                }
-
-                Map<String, Object> choice = (Map<String, Object>) choices.get(0);
-                if (!choice.containsKey("message")) {
-                    log.error("DeepSeek API返回数据格式异常，缺少message字段");
-                    throw new RuntimeException("AI分析服务返回数据格式异常");
-                }
-
-                Map<String, String> message = (Map<String, String>) choice.get("message");
-                if (!message.containsKey("content")) {
-                    log.error("DeepSeek API返回数据格式异常，缺少content字段");
-                    throw new RuntimeException("AI分析服务返回数据格式异常");
-                }
-
-                String content = message.get("content");
-                if (content == null || content.trim().isEmpty()) {
-                    log.error("DeepSeek API返回空内容");
-                    throw new RuntimeException("AI分析服务返回空内容");
-                }
-
-                return content;
+                
             } catch (HttpClientErrorException e) {
-                log.error("DeepSeek API调用失败，HTTP状态码：{}，响应内容：{}", e.getRawStatusCode(), e.getResponseBodyAsString());
-                if (e.getRawStatusCode() == 402) {
-                    throw new RuntimeException("AI分析服务余额不足，请充值后重试");
+                if (e.getRawStatusCode() == 404) {
+                    log.error("DeepSeek API地址不存在，请检查配置：{}", apiUrl);
+                    return null;
+                } else if (e.getRawStatusCode() == 401) {
+                    log.error("DeepSeek API认证失败，请检查API密钥是否正确配置。错误详情：{}", e.getResponseBodyAsString());
+                    return null;
                 }
-                throw new RuntimeException("AI分析服务调用失败：" + e.getMessage());
+                log.error("DeepSeek API调用失败，第{}次尝试：{}", currentRetry + 1, e.getMessage());
+                currentRetry++;
+                if (currentRetry < maxRetries) {
+                    try {
+                        Thread.sleep(1000 * currentRetry); // 递增延迟重试
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                log.error("DeepSeek API调用失败，第{}次尝试：{}", currentRetry + 1, e.getMessage());
+                currentRetry++;
+                if (currentRetry < maxRetries) {
+                    try {
+                        Thread.sleep(1000 * currentRetry); // 递增延迟重试
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
             }
-        } catch (Exception e) {
-            log.error("调用DeepSeek API失败", e);
-            throw new RuntimeException("AI分析服务调用失败：" + e.getMessage());
         }
+        
+        log.error("DeepSeek API调用失败，已达到最大重试次数");
+        return null;
     }
 }

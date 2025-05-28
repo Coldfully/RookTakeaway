@@ -17,4 +17,9 @@ public interface UserProfileService extends IService<UserProfile> {
      * @return 用户画像信息
      */
     UserProfile getUserProfile(Long userId);
+
+    /**
+     * 批量生成用户画像
+     */
+    void generateBatchUserProfile();
 } 

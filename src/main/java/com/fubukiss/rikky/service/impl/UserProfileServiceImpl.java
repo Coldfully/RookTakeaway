@@ -3,16 +3,19 @@ package com.fubukiss.rikky.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fubukiss.rikky.entity.OrderDetail;
+import com.fubukiss.rikky.entity.User;
 import com.fubukiss.rikky.entity.UserProfile;
 import com.fubukiss.rikky.mapper.UserProfileMapper;
 import com.fubukiss.rikky.service.OrderDetailService;
 import com.fubukiss.rikky.service.UserProfileService;
+import com.fubukiss.rikky.service.UserService;
 import com.fubukiss.rikky.util.DeepSeekClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,6 +26,9 @@ public class UserProfileServiceImpl extends ServiceImpl<UserProfileMapper, UserP
 
     @Autowired
     private OrderDetailService orderDetailService;
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private DeepSeekClient deepSeekClient;
@@ -58,17 +64,21 @@ public class UserProfileServiceImpl extends ServiceImpl<UserProfileMapper, UserP
             String aiAnalysis = null;
             try {
                 aiAnalysis = deepSeekClient.analyzeUserProfile(userHistoryJson);
+                if (aiAnalysis == null) {
+                    log.warn("AI分析服务返回null，使用基础分析");
+                    aiAnalysis = generateBasicAnalysis(orderDetails, dishFrequency);
+                }
             } catch (Exception e) {
                 log.error("AI分析服务调用失败，使用基础分析：{}", e.getMessage());
                 // 使用基础分析作为备选方案
                 aiAnalysis = generateBasicAnalysis(orderDetails, dishFrequency);
             }
             
-            if (aiAnalysis == null || aiAnalysis.contains("失败") || aiAnalysis.contains("错误")) {
-                log.error("AI分析失败：{}", aiAnalysis);
-                throw new RuntimeException("AI分析失败：" + aiAnalysis);
+            if (aiAnalysis == null) {
+                log.error("基础分析也失败了");
+                throw new RuntimeException("无法生成用户画像分析");
             }
-            log.info("AI分析结果：{}", aiAnalysis);
+            log.info("分析结果：{}", aiAnalysis);
             
             // 5. 保存或更新用户画像
             LambdaQueryWrapper<UserProfile> queryWrapper = new LambdaQueryWrapper<>();
@@ -128,6 +138,38 @@ public class UserProfileServiceImpl extends ServiceImpl<UserProfileMapper, UserP
         return this.getOne(queryWrapper);
     }
 
+    @Override
+    public void generateBatchUserProfile() {
+        // 获取所有用户
+        List<User> users = userService.list();
+        log.info("开始批量生成用户画像，总用户数：{}", users.size());
+        
+        int successCount = 0;
+        int failCount = 0;
+        StringBuilder errorMessages = new StringBuilder();
+        
+        for (User user : users) {
+            try {
+                log.info("开始处理用户：{}，邮箱：{}", user.getId(), user.getEmail());
+                generateUserProfile(user.getId());
+                successCount++;
+                log.info("用户{}的画像生成成功", user.getEmail());
+            } catch (Exception e) {
+                failCount++;
+                String errorMsg = String.format("用户%s（%s）生成失败：%s", user.getEmail(), user.getId(), e.getMessage());
+                log.error(errorMsg);
+                errorMessages.append(errorMsg).append("\n");
+            }
+        }
+        
+        String resultMessage = String.format("批量生成完成，成功：%d，失败：%d", successCount, failCount);
+        if (failCount > 0) {
+            resultMessage += "\n失败详情：\n" + errorMessages.toString();
+        }
+        
+        log.info(resultMessage);
+    }
+
     private String buildUserHistoryJson(Long userId, List<OrderDetail> orderDetails, Map<String, Long> dishFrequency) {
         // 构建用户历史数据JSON字符串
         StringBuilder jsonBuilder = new StringBuilder();
@@ -163,14 +205,36 @@ public class UserProfileServiceImpl extends ServiceImpl<UserProfileMapper, UserP
                 .mapToDouble(detail -> detail.getAmount().doubleValue() * detail.getNumber())
                 .average()
                 .orElse(0.0);
-                
+        
+        // 计算消费稳定性评估
+        double variance = orderDetails.stream()
+                .mapToDouble(detail -> detail.getAmount().doubleValue() * detail.getNumber())
+                .map(amount -> Math.pow(amount - avgAmount, 2))
+                .average()
+                .orElse(0.0);
+        
+        StringBuilder analysis = new StringBuilder();
+        analysis.append("消费习惯分析：\n");
+        analysis.append(String.format("- 平均消费：%.2f元\n", avgAmount));
+        
+        // 消费水平评估
         if (avgAmount > 100) {
-            return "高消费";
+            analysis.append("- 消费水平：高消费\n");
         } else if (avgAmount > 50) {
-            return "中等消费";
+            analysis.append("- 消费水平：中等消费\n");
         } else {
-            return "经济型消费";
+            analysis.append("- 消费水平：经济型消费\n");
         }
+        
+        if (variance < 100) {
+            analysis.append("- 消费特征：消费稳定\n");
+        } else if (variance < 500) {
+            analysis.append("- 消费特征：消费波动适中\n");
+        } else {
+            analysis.append("- 消费特征：消费波动较大\n");
+        }
+        
+        return analysis.toString();
     }
 
     /**
@@ -182,27 +246,59 @@ public class UserProfileServiceImpl extends ServiceImpl<UserProfileMapper, UserP
         
         // 1. 口味偏好分析
         analysis.append("1. 口味偏好分析：\n");
-        String tastePreference = orderDetails.stream()
+        Map<String, Long> flavorFrequency = orderDetails.stream()
                 .filter(detail -> detail.getDishFlavor() != null && !detail.getDishFlavor().isEmpty())
-                .map(OrderDetail::getDishFlavor)
-                .distinct()
-                .collect(Collectors.joining("、"));
-        analysis.append("   - 偏好口味：").append(tastePreference.isEmpty() ? "暂无数据" : tastePreference).append("\n\n");
+                .flatMap(detail -> Arrays.stream(detail.getDishFlavor().split(",")))
+                .collect(Collectors.groupingBy(
+                    flavor -> flavor,
+                    Collectors.counting()
+                ));
+        
+        if (flavorFrequency.isEmpty()) {
+            analysis.append("   - 暂无口味偏好数据\n");
+        } else {
+            analysis.append("   - 口味偏好统计：\n");
+            flavorFrequency.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .forEach(entry -> {
+                    analysis.append(String.format("     * %s：%d次\n", entry.getKey(), entry.getValue()));
+                });
+        }
+        analysis.append("\n");
         
         // 2. 消费习惯分析
         analysis.append("2. 消费习惯分析：\n");
         double avgAmount = orderDetails.stream()
-                .mapToDouble(detail -> detail.getAmount().doubleValue())
+                .mapToDouble(detail -> detail.getAmount().doubleValue() * detail.getNumber())
                 .average()
                 .orElse(0.0);
-        analysis.append("   - 平均消费：").append(String.format("%.2f元", avgAmount)).append("\n\n");
+        analysis.append(String.format("   - 平均消费：%.2f元\n", avgAmount));
+        
+        // 计算消费稳定性
+        double variance = orderDetails.stream()
+                .mapToDouble(detail -> detail.getAmount().doubleValue() * detail.getNumber())
+                .map(amount -> Math.pow(amount - avgAmount, 2))
+                .average()
+                .orElse(0.0);
+        
+        if (variance < 100) {
+            analysis.append("   - 消费特征：消费稳定\n");
+        } else if (variance < 500) {
+            analysis.append("   - 消费特征：消费波动适中\n");
+        } else {
+            analysis.append("   - 消费特征：消费波动较大\n");
+        }
+        analysis.append("\n");
         
         // 3. 个性化推荐
         analysis.append("3. 个性化推荐：\n");
-        analysis.append("   - 常点菜品：").append(dishFrequency.entrySet().stream()
-                .limit(3)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.joining("、"))).append("\n");
+        analysis.append("   - 常点菜品：\n");
+        dishFrequency.entrySet().stream()
+            .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+            .limit(3)
+            .forEach(entry -> {
+                analysis.append(String.format("     * %s（%d次）\n", entry.getKey(), entry.getValue()));
+            });
         
         return analysis.toString();
     }
