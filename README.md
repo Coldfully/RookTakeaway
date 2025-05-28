@@ -62,7 +62,7 @@ Rook外卖系统是一个基于Spring Boot的外卖点餐平台，提供用户�
 1. 克隆项目
 
 ```bash
-git clone https://github.com/your-username/rook-takeaway.git
+git clone https://github.com/Coldfully/RookTakeaway.git
 ```
 
 2. 配置数据库
