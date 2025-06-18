@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rook餐厅 - 电脑端点餐</title>
+    <link rel="icon" href="./../images/favico.ico?v=2">
+    <!-- element-ui的样式 -->
+    <link rel="stylesheet" href="../../backend/plugins/element-ui/index.css"/>
+    <!-- 引入vant样式 -->
+    <link rel="stylesheet" href="../styles/vant.min.css"/>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="../styles/index.css"/>
+    <!-- 电脑端样式 -->
+    <link rel="stylesheet" href="../styles/desktop.css"/>
+</head>
+<body>
+<div id="desktop" class="desktop-container">
+    <!-- 头部 -->
+    <div class="desktop-header">
+        <div class="logo">
+            <img src="./../images/logo.png" alt="Rook餐厅"/>
+            <div class="divDesc">
+                <div class="divName">Rook餐厅</div>
+                <div class="divSend">
+                    <span><img src="./../images/time.png"/> 距离19.19km</span>
+                    <span><img src="./../images/money.png"/> 配送费8元</span>
+                    <span><img src="./../images/location.png"/> 预计时长10min</span>
+                </div>
+            </div>
+        </div>
+        <div class="user-info">
+            <img src="./../images/user.png" @click="toUserPage" style="width: 40px; height: 40px; cursor: pointer;"/>
+        </div>
+    </div>
+
+    <!-- 主要内容区域 -->
+    <div class="desktop-main">
+        <!-- 左侧分类菜单 -->
+        <div class="desktop-categories">
+            <ul>
+                <li v-for="(item,index) in categoryList" 
+                    :key="index" 
+                    @click="categoryClick(index,item.id,item.type)"
+                    :class="{active:activeType === index}">
+                    {{item.name}}
+                </li>
+            </ul>
+        </div>
+
+        <!-- 右侧菜品列表 -->
+        <div class="desktop-dishes">
+            <div class="desktop-dish-grid">
+                <div class="desktop-dish-item" v-for="(item,index) in dishList" :key="index" @click="dishDetails(item)">
+                    <el-image :src="imgPathConvert(item.image)">
+                        <div slot="error" class="image-slot">
+                            <img src="./../images/noImg.png"/>
+                        </div>
+                    </el-image>
+                    <div class="divName">{{item.name}}</div>
+                    <div class="divDesc">{{item.description}}</div>
+                    <div class="divDesc">{{'月销' + (item.saleNum ? item.saleNum : 0) }}</div>
+                    <div class="divBottom">
+                        <div class="price">
+                            <span>￥</span><span>{{item.price/100}}</span>
+                        </div>
+                        <div class="divNum">
+                            <div class="divSubtract" v-if="item.number > 0">
+                                <img src="./../images/subtract.png" @click.prevent.stop="subtractCart(item)"/>
+                            </div>
+                            <div class="divDishNum">{{item.number}}</div>
+                            <div class="divTypes" v-if="item.flavors && item.flavors.length > 0 && !item.number"
+                                 @click.prevent.stop="chooseFlavorClick(item)">选择规格
+                            </div>
+                            <div class="divAdd" v-else>
+                                <img src="./../images/add.png" @click.prevent.stop="addCart(item)"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 购物车 -->
+    <div class="desktop-cart" v-if="categoryList.length > 0">
+        <div class="cart-icon">
+            <img :src="cartData && cartData.length > 0 ? './../images/cart_active.png' : './../images/cart.png'"
+                 @click="openCart"/>
+            <div class="cart-count" v-if="cartData && cartData.length > 0">{{goodsNum}}</div>
+        </div>
+        <div class="cart-total">
+            <span>￥</span><span>{{goodsPrice}}</span>
+        </div>
+        <button class="checkout-btn" 
+                :class="{disabled: !cartData || cartData.length < 1}"
+                @click="toAddOrderPage">
+            去结算
+        </button>
+    </div>
+
+    <!-- 口味选择弹窗 -->
+    <van-dialog v-model="dialogFlavor.show" 
+                :show-confirm-button="false" 
+                class="desktop-dialog" 
+                ref="flavorDialog">
+        <div class="dialog-header">
+            <div class="dialog-title">{{dialogFlavor.name}}</div>
+            <div class="dialog-close" @click="dialogFlavor.show = false">
+                <img src="./../images/close.png"/>
+            </div>
+        </div>
+        <div class="dialog-content">
+            <div v-for="flavor in dialogFlavor.flavors" :key="flavor.id">
+                <div class="divFlavorTitle">{{flavor.name}}</div>
+                <span v-for="item in JSON.parse(flavor.value)"
+                      :key="item"
+                      @click="flavorClick(flavor,item)"
+                      :class="{spanActive:flavor.dishFlavor === item}">
+                    {{item}}
+                </span>
+            </div>
+        </div>
+        <div class="dialog-footer">
+            <div class="price">
+                <span>￥</span><span>{{dialogFlavor.price/100}}</span>
+            </div>
+            <button class="checkout-btn" @click="dialogFlavorAddCart">加入购物车</button>
+        </div>
+    </van-dialog>
+
+    <!-- 菜品详情弹窗 -->
+    <van-dialog v-model="detailsDialog.show"
+                :show-confirm-button="false"
+                class="desktop-dialog"
+                ref="detailsDialog"
+                v-if="detailsDialog.show">
+        <div class="dialog-header">
+            <div class="dialog-title">菜品详情</div>
+            <div class="dialog-close" @click="detailsDialog.show = false">
+                <img src="./../images/close.png"/>
+            </div>
+        </div>
+        <div class="dialog-content">
+            <el-image :src="imgPathConvert(detailsDialog.item.image)">
+                <div slot="error" class="image-slot">
+                    <img src="./../images/noImg.png"/>
+                </div>
+            </el-image>
+            <div class="divName">{{detailsDialog.item.name}}</div>
+            <div class="divDesc">{{detailsDialog.item.description}}</div>
+        </div>
+        <div class="dialog-footer">
+            <div class="price">
+                <span>￥</span><span>{{detailsDialog.item.price/100}}</span>
+            </div>
+            <div class="divNum">
+                <div class="divSubtract" v-if="detailsDialog.item.number > 0">
+                    <img src="./../images/subtract.png" @click="subtractCart(detailsDialog.item)"/>
+                </div>
+                <div class="divDishNum">{{detailsDialog.item.number}}</div>
+                <div class="divTypes"
+                     v-if="detailsDialog.item.flavors && detailsDialog.item.flavors.length > 0 && !detailsDialog.item.number"
+                     @click="chooseFlavorClick(detailsDialog.item)">选择规格
+                </div>
+                <div class="divAdd" v-else>
+                    <img src="./../images/add.png" @click="addCart(detailsDialog.item)"/>
+                </div>
+            </div>
+        </div>
+    </van-dialog>
+
+    <!-- 套餐详情弹窗 -->
+    <van-dialog v-model="setMealDialog.show"
+                :show-confirm-button="false"
+                class="desktop-dialog"
+                ref="setMealDetailsDialog"
+                v-if="setMealDialog.show">
+        <div class="dialog-header">
+            <div class="dialog-title">套餐详情</div>
+            <div class="dialog-close" @click="setMealDialog.show = false">
+                <img src="./../images/close.png"/>
+            </div>
+        </div>
+        <div class="dialog-content">
+            <div class="divName">{{setMealDialog.item.name}}</div>
+            <div class="desktop-dish-grid">
+                <div class="desktop-dish-item" v-for="(item,index) in setMealDialog.item.list" :key="index">
+                    <el-image :src="imgPathConvert(item.image)">
+                        <div slot="error" class="image-slot">
+                            <img src="./../images/noImg.png"/>
+                        </div>
+                    </el-image>
+                    <div class="divName">{{item.name + '(' + item.copies + '份)' }}</div>
+                    <div class="divDesc">{{item.description}}</div>
+                    <div class="price">
+                        <span>￥</span><span>{{item.price/100}}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="dialog-footer">
+            <div class="price">
+                <span>￥</span><span>{{setMealDialog.item.price/100}}</span>
+            </div>
+            <div class="divNum">
+                <div class="divSubtract" v-if="setMealDialog.item.number > 0">
+                    <img src="./../images/subtract.png" @click="subtractCart(setMealDialog.item)"/>
+                </div>
+                <div class="divDishNum">{{setMealDialog.item.number}}</div>
+                <div class="divAdd" v-if="setMealDialog.item.number">
+                    <img src="./../images/add.png" @click="addCart(setMealDialog.item)"/>
+                </div>
+                <button class="checkout-btn" @click="addCart(setMealDialog.item)" v-if="!setMealDialog.item.number">
+                    加入购物车
+                </button>
+            </div>
+        </div>
+    </van-dialog>
+</div>
+
+<!-- 开发环境版本，包含了有帮助的命令行警告 -->
+<script src="../../backend/plugins/vue/vue.js"></script>
+<!-- 引入组件库 -->
+<script src="../../backend/plugins/element-ui/index.js"></script>
+<!-- 引入vant样式 -->
+<script src="./../js/vant.min.js"></script>
+<!-- 引入axios -->
+<script src="../../backend/plugins/axios/axios.min.js"></script>
+<script src="./../js/request.js"></script>
+<script src="./../js/common.js"></script>
+<script src="./../api/main.js"></script>
+</body>
+<script>
+    new Vue({
+        el: '#desktop',
+        data() {
+            return {
+                activeType: 0,
+                categoryList: [],
+                categoryId: undefined,
+                dishList: [],
+                cartData: [],
+                dialogFlavor: {
+                    name: '',
+                    flavors: [],
+                    dishId: undefined,
+                    price: undefined,
+                    show: false,
+                    image: ''
+                },
+                detailsDialog: {
+                    show: false,
+                    item: {image: ''}
+                },
+                setMealDialog: {
+                    show: false,
+                    item: {}
+                },
+            }
+        },
+        computed: {
+            goodsNum() {
+                let num = 0
+                this.cartData.forEach(item => {
+                    num += item.number
+                })
+                if (num < 99) {
+                    return num
+                } else {
+                    return '99+'
+                }
+            },
+            goodsPrice() {
+                let price = 0
+                this.cartData.forEach(item => {
+                    price += (item.number * item.amount)
+                })
+                return price
+            }
+        },
+        created() {
+            this.initData()
+        },
+        methods: {
+            async initData() {
+                await this.getCategoryList()
+                await this.getCartData()
+            },
+            async getCategoryList() {
+                const res = await categoryListApi({})
+                if (res.code === 1) {
+                    this.categoryList = res.data
+                    if (this.categoryList.length > 0) {
+                        this.categoryClick(0, this.categoryList[0].id, this.categoryList[0].type)
+                    }
+                } else {
+                    this.$notify({type: 'warning', message: res.msg});
+                }
+            },
+            async getDishList() {
+                if (!this.categoryId) {
+                    return
+                }
+                const res = await dishListApi({categoryId: this.categoryId, status: 1})
+                if (res.code === 1) {
+                    let dishList = res.data
+                    const cartData = this.cartData
+                    if (dishList.length > 0 && cartData.length > 0) {
+                        dishList.forEach(dish => {
+                            cartData.forEach(cart => {
+                                if (dish.id === cart.dishId) {
+                                    dish.number = cart.number
+                                }
+                            })
+                        })
+                    }
+                    this.dishList = dishList
+                } else {
+                    this.$notify({type: 'warning', message: res.msg});
+                }
+            },
+            async getSetmealData() {
+                if (!this.categoryId) {
+                    return
+                }
+                const res = await setmealListApi({categoryId: this.categoryId, status: 1})
+                if (res.code === 1) {
+                    let dishList = res.data
+                    const cartData = this.cartData
+                    if (dishList.length > 0 && cartData.length > 0) {
+                        dishList.forEach(dish => {
+                            cartData.forEach(cart => {
+                                if (dish.id === cart.setmealId) {
+                                    dish.number = cart.number
+                                }
+                            })
+                        })
+                    }
+                    this.dishList = dishList
+                } else {
+                    this.$notify({type: 'warning', message: res.msg});
+                }
+            },
+            async getCartData() {
+                const res = await cartListApi({})
+                if (res.code === 1) {
+                    this.cartData = res.data
+                } else {
+                    this.$notify({type: 'warning', message: res.msg});
+                }
+            },
+            async addCart(item) {
+                let params = {
+                    amount: item.price / 100,
+                    dishFlavor: item.dishFlavor,
+                    dishId: undefined,
+                    setmealId: undefined,
+                    name: item.name,
+                    image: item.image
+                }
+                if (Array.isArray(item.flavors)) {
+                    params.dishId = item.id
+                } else {
+                    params.setmealId = item.id
+                }
+                const res = await addCartApi(params)
+                if (res.code === 1) {
+                    this.dishList.forEach(dish => {
+                        if (dish.id === item.id) {
+                            dish.number = res.data.number
+                        }
+                    })
+                    if (this.setMealDialog.show) {
+                        item.number = res.data.number
+                    }
+                    this.getCartData()
+                } else {
+                    this.$notify({type: 'warning', message: res.msg});
+                }
+            },
+            async subtractCart(item) {
+                let params = {
+                    dishId: item.id,
+                    setmealId: undefined,
+                }
+                if (!Array.isArray(item.flavors)) {
+                    params.setmealId = item.id
+                    params.dishId = undefined
+                }
+                const res = await updateCartApi(params)
+                if (res.code === 1) {
+                    this.dishList.forEach(dish => {
+                        if (dish.id === item.id) {
+                            dish.number = (res.data.number === 0 ? undefined : res.data.number)
+                        }
+                    })
+                    if (this.setMealDialog.show) {
+                        item.number = (res.data.number === 0 ? undefined : res.data.number)
+                    }
+                    this.getCartData()
+                } else {
+                    this.$notify({type: 'warning', message: res.msg});
+                }
+            },
+            categoryClick(index, id, type) {
+                this.activeType = index
+                this.categoryId = id
+                if (type === 1) {
+                    this.getDishList()
+                } else {
+                    this.getSetmealData()
+                }
+            },
+            dishDetails(item) {
+                if (Array.isArray(item.flavors)) {
+                    this.detailsDialog.item = item
+                    this.detailsDialog.show = true
+                } else {
+                    this.setMealDialog.item = item
+                    this.setMealDialog.show = true
+                }
+            },
+            chooseFlavorClick(item) {
+                this.dialogFlavor = {
+                    name: item.name,
+                    flavors: item.flavors,
+                    dishId: item.id,
+                    price: item.price,
+                    show: true,
+                    image: item.image
+                }
+            },
+            flavorClick(flavor, item) {
+                flavor.dishFlavor = item
+            },
+            dialogFlavorAddCart() {
+                const dialogFlavor = this.dialogFlavor
+                let flag = true
+                let dishFlavor = []
+                dialogFlavor.flavors.forEach(item => {
+                    if (item.dishFlavor) {
+                        dishFlavor.push(item.dishFlavor)
+                    } else {
+                        flag = false
+                        Notify({type: 'warning', message: '请选择' + item.name});
+                    }
+                })
+                if (flag) {
+                    this.addCart({
+                        price: dialogFlavor.price,
+                        dishFlavor: dishFlavor.join(","),
+                        id: dialogFlavor.dishId,
+                        flavors: [],
+                        image: dialogFlavor.image,
+                        name: dialogFlavor.name
+                    })
+                    this.dialogFlavor.show = false
+                }
+            },
+            imgPathConvert(path) {
+                return imgPath(path)
+            },
+            toAddOrderPage() {
+                if (this.cartData.length > 0) {
+                    window.requestAnimationFrame(() => {
+                        window.location.href = '/front/page/add-order.html'
+                    })
+                }
+            },
+            toUserPage() {
+                window.requestAnimationFrame(() => {
+                    window.location.href = '/front/page/user.html'
+                })
+            }
+        }
+    })
+</script>
+</html> 

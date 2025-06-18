@@ -1,0 +1,57 @@
+server:
+  port: 9009  # default port
+spring:
+  application:
+    name: rook_takeaway  # 应用名称
+  datasource:
+    druid:
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      url: ${DB_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
+  # 邮箱验证配置信息
+  mail:
+    host: smtp.qq.com
+    username: ${MAIL_USERNAME} # 请自行配置邮箱地址
+    password: ${MAIL_PASSWORD}
+    port: 465
+    default-encoding: UTF-8
+    timeout: 10 # 验证码有效时间 单位：分钟
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+          socketFactoryClass: javax.net.ssl.SSLSocketFactory
+          socketFactoryPort: 465
+        # 开启debug以后，邮件发送过程的日志会在控制台上打印出来
+        debug: true
+
+mybatis-plus:
+  configuration:
+    # 在映射实体或者属性时，将数据库中表名和字段名中的下划线去掉，按照驼峰命名法映射
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    auto-mapping-behavior: full
+    call-setters-on-nulls: true
+  global-config:
+    db-config:
+      id-type: AUTO
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+rikky:
+  linux-path: ${LINUX_PATH}   # 本地测试时，文件存储路径
+#  windows-path:
+
+deepseek:
+  api:
+    key: ${DEEPSEEK_KEY}
+    url: https://api.deepseek.com/v1/chat/completions
+
+logging:
+  level:
+    com.fubukiss.rikky.util.DeepSeekClient: DEBUG
+    org.springframework.web.client.RestTemplate: DEBUG

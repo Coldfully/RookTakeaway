@@ -1,0 +1,40 @@
+# Java编译输出
+/target/
+*.class
+
+# 日志文件
+*.log
+
+# IDE配置
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea/shelf/
+.idea/workspace.xml
+.idea/httpRequests/
+.idea/dataSources/
+.idea/dataSources.local.xml
+
+# 本地环境配置
+*.local
+*.env
+
+# 临时文件
+*.tmp
+*.swp
+*.bak
+
+# 打包文件
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# 虚拟机崩溃日志
+hs_err_pid*
+
+# 用户上传图片目录
+/img/
